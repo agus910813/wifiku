@@ -1,0 +1,66 @@
+from pathlib import Path
+html = """<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Billing WiFi Sederhana</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f3f4f6;margin:0;padding:16px;color:#111827}.wrap{max-width:900px;margin:auto}
+.card{background:#fff;padding:16px;border-radius:14px;margin-bottom:14px;box-shadow:0 2px 9px #0001}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+input,button{width:100%;box-sizing:border-box;padding:12px;border-radius:9px;border:1px solid #d1d5db;font-size:15px}
+button{background:#111827;color:#fff;border:0}.danger{background:#dc2626}.paid{background:#dcfce7;padding:5px 8px;border-radius:7px}.unpaid{background:#fee2e2;padding:5px 8px;border-radius:7px}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:left}
+.small{font-size:13px;color:#6b7280}.stat{font-size:23px;font-weight:bold}
+</style></head>
+<body><div class="wrap">
+<div class="card"><h2>Billing WiFi</h2><div class="small">Versi diperbaiki untuk HP Android. Data tersimpan di browser perangkat ini.</div></div>
+<div class="grid">
+<div class="card"><div class="small">Pelanggan</div><div id="count" class="stat">0</div></div>
+<div class="card"><div class="small">Belum Lunas</div><div id="unpaid" class="stat">0</div></div>
+<div class="card"><div class="small">Pembayaran</div><div id="income" class="stat">Rp0</div></div>
+</div>
+<div class="card"><h3>Tambah Tagihan</h3>
+<div class="grid">
+<input id="name" placeholder="Nama pelanggan">
+<input id="phone" placeholder="No. HP">
+<input id="pkg" placeholder="Paket WiFi">
+<input id="amount" type="number" inputmode="numeric" placeholder="Nominal (Rp)">
+<input id="due" type="date">
+<button id="saveBtn" type="button">Simpan Tagihan</button>
+</div></div>
+<div class="card"><h3>Daftar Tagihan</h3><div style="overflow:auto"><table><thead><tr><th>Pelanggan</th><th>Paket</th><th>Nominal</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</div>
+<script>
+(function(){
+const KEY='billingWifiV2';
+let bills=[];
+try{bills=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){bills=[]}
+const $=id=>document.getElementById(id);
+const rp=n=>'Rp'+Number(n||0).toLocaleString('id-ID');
+function persist(){localStorage.setItem(KEY,JSON.stringify(bills));render()}
+function addBill(){
+ const name=$('name').value.trim(), amount=Number($('amount').value);
+ if(!name){alert('Isi nama pelanggan dulu.');$('name').focus();return}
+ if(!amount){alert('Isi nominal tagihan dulu.');$('amount').focus();return}
+ bills.push({id:Date.now(),name,phone:$('phone').value.trim(),pkg:$('pkg').value.trim(),amount,due:$('due').value,paid:false});
+ ['name','phone','pkg','amount','due'].forEach(id=>$(id).value='');persist();alert('Tagihan berhasil disimpan.');
+}
+function pay(id){const b=bills.find(x=>x.id===id);if(b){b.paid=true;b.paidAt=new Date().toISOString();persist();}}
+function delBill(id){if(confirm('Hapus tagihan ini?')){bills=bills.filter(x=>x.id!==id);persist();}}
+function receipt(id){
+ const b=bills.find(x=>x.id===id);if(!b)return;
+ const w=window.open('','_blank');if(!w){alert('Chrome memblokir jendela bukti. Izinkan pop-up lalu coba lagi.');return}
+ w.document.write('<html><body style="font-family:Arial;padding:25px"><h2>Bukti Pembayaran WiFi</h2><p>Pelanggan: '+b.name+'</p><p>Paket: '+(b.pkg||'-')+'</p><p>Nominal: '+rp(b.amount)+'</p><p>Status: LUNAS</p><p>Tanggal: '+new Date(b.paidAt||Date.now()).toLocaleString('id-ID')+'</p></body></html>');
+ w.document.close();w.focus();
+}
+function render(){
+ $('count').textContent=bills.length;$('unpaid').textContent=bills.filter(b=>!b.paid).length;
+ $('income').textContent=rp(bills.filter(b=>b.paid).reduce((s,b)=>s+Number(b.amount),0));
+ $('rows').innerHTML=bills.map(b=>'<tr><td>'+b.name+'<br><span class="small">'+(b.phone||'')+'</span></td><td>'+(b.pkg||'-')+'</td><td>'+rp(b.amount)+'</td><td>'+(b.due||'-')+'</td><td><span class="'+(b.paid?'paid':'unpaid')+'">'+(b.paid?'LUNAS':'BELUM LUNAS')+'</span></td><td>'+(b.paid?'<button type="button" data-receipt="'+b.id+'">Bukti</button>':'<button type="button" data-pay="'+b.id+'">Bayar</button>')+'<br><button type="button" class="danger" data-del="'+b.id+'" style="margin-top:5px">Hapus</button></td></tr>').join('');
+}
+$('saveBtn').addEventListener('click',addBill);
+$('rows').addEventListener('click',e=>{const t=e.target;if(t.dataset.pay)pay(Number(t.dataset.pay));else if(t.dataset.del)delBill(Number(t.dataset.del));else if(t.dataset.receipt)receipt(Number(t.dataset.receipt));});
+render();
+})();
+</script></body></html>"""
+path=Path("/mnt/data/billing_wifi_perbaikan.html"); path.write_text(html,encoding="utf-8")
+print(path)
